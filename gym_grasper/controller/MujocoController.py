@@ -20,7 +20,7 @@ from decorators import debug
 
 class MJ_Controller(object):
     """
-    Class for control of an robotic arm in MuJoCo.
+    Class for control of a robotic arm in MuJoCo.
     It can be used on its own, in which case a new model, simulation and viewer will be created.
     It can also be passed these objects when creating an instance, in which case the class can be used
     to perform tasks on an already instantiated simulation.
@@ -35,6 +35,19 @@ class MJ_Controller(object):
             self.model = model
         self.sim = mp.MjSim(self.model) if simulation is None else simulation
         self.viewer = mp.MjViewer(self.sim) if viewer is None else viewer
+        # PID gains definitions
+        self.p_scale = 3
+        self.i_scale = 0.0
+        self.d_scale = 0.1
+        self.gains = {
+            "shoulder_pan": {"P": 7.0, "I": 0.0, "D": 1.0, "setpoint": 0.0, "output_limits": (-2.0, 2.0)},
+            "shoulder_lift": {"P": 10.0, "I": 0.0, "D": 1.0, "setpoint": -1.57, "output_limits": (-2.0, 2.0)},
+            "elbow": {"P": 5.0, "I": 0.0, "D": 0.5, "setpoint": 1.57, "output_limits": (-2.0, 2.0)},
+            "wrist_1": {"P": 7.0, "I": 0.0, "D": 0.1, "setpoint": -1.57, "output_limits": (-1.0, 1.0)},
+            "wrist_2": {"P": 5.0, "I": 0.0, "D": 0.1, "setpoint": -1.57, "output_limits": (-1.0, 1.0)},
+            "wrist_3": {"P": 5.0, "I": 0.0, "D": 0.1, "setpoint": 0.0, "output_limits": (-1.0, 1.0)},
+            "gripper": {"P": 2.5, "I": 0.0, "D": 0.00, "setpoint": 0.0, "output_limits": (-1.0, 1.0)}
+        }
         self.create_lists()
         self.groups = defaultdict(list)
         self.groups["All"] = list(range(len(self.sim.data.ctrl)))
@@ -49,6 +62,7 @@ class MJ_Controller(object):
         self.cam_init = False
         self.last_movement_steps = 0
         # self.move_group_to_joint_target()
+
 
     def create_group(self, group_name, idx_list):
         """
@@ -143,7 +157,7 @@ class MJ_Controller(object):
 
         - current_joint_value_targets: Same as the current setpoints for all controllers, created for convenience.
 
-        - current_output = A list containing the ouput values of all the controllers. This list is only initiated here, its
+        - current_output = A list containing the output values of all the controllers. This list is only initiated here, its
         values are overwritten at the first simulation step.
 
         - actuators: 2D list, each entry represents one actuator and contains:
@@ -158,78 +172,74 @@ class MJ_Controller(object):
 
         # Values for training
         sample_time = 0.0001
-        # p_scale = 1
-        p_scale = 3
-        i_scale = 0.0
-        i_gripper = 0.0
-        d_scale = 0.1
+
         self.controller_list.append(
             PID(
-                7 * p_scale,
-                1.0 * i_scale,
-                1.1 * d_scale,
-                setpoint=0,
-                output_limits=(-2, 2),
-                sample_time=sample_time,
+                self.gains["shoulder_pan"]["P"] * self.p_scale,
+                self.gains["shoulder_pan"]["I"] * self.i_scale,
+                self.gains["shoulder_pan"]["D"] * self.d_scale,
+                setpoint=self.gains["shoulder_pan"]["setpoint"],
+                output_limits=self.gains["shoulder_pan"]["output_limits"],
+                sample_time=sample_time
             )
         )  # Shoulder Pan Joint
         self.controller_list.append(
             PID(
-                10 * p_scale,
-                0.0 * i_scale,
-                1.0 * d_scale,
-                setpoint=-1.57,
-                output_limits=(-2, 2),
+                self.gains["shoulder_lift"]["P"] * self.p_scale,
+                self.gains["shoulder_lift"]["I"] * self.i_scale,
+                self.gains["shoulder_lift"]["D"] * self.d_scale,
+                setpoint=self.gains["shoulder_lift"]["setpoint"],
+                output_limits=self.gains["shoulder_lift"]["output_limits"],
                 sample_time=sample_time,
             )
         )  # Shoulder Lift Joint
         self.controller_list.append(
             PID(
-                5 * p_scale,
-                0.0 * i_scale,
-                0.5 * d_scale,
-                setpoint=1.57,
-                output_limits=(-2, 2),
+                self.gains["elbow"]["P"] * self.p_scale,
+                self.gains["elbow"]["I"] * self.i_scale,
+                self.gains["elbow"]["D"] * self.d_scale,
+                setpoint=self.gains["elbow"]["setpoint"],
+                output_limits=self.gains["elbow"]["output_limits"],
                 sample_time=sample_time,
             )
         )  # Elbow Joint
         self.controller_list.append(
             PID(
-                7 * p_scale,
-                0.0 * i_scale,
-                0.1 * d_scale,
-                setpoint=-1.57,
-                output_limits=(-1, 1),
+                self.gains["wrist_1"]["P"] * self.p_scale,
+                self.gains["wrist_1"]["I"] * self.i_scale,
+                self.gains["wrist_1"]["D"] * self.d_scale,
+                setpoint=self.gains["wrist_1"]["setpoint"],
+                output_limits=self.gains["wrist_1"]["output_limits"],
                 sample_time=sample_time,
             )
         )  # Wrist 1 Joint
         self.controller_list.append(
             PID(
-                5 * p_scale,
-                0.0 * i_scale,
-                0.1 * d_scale,
-                setpoint=-1.57,
-                output_limits=(-1, 1),
+                self.gains["wrist_2"]["P"] * self.p_scale,
+                self.gains["wrist_2"]["I"] * self.i_scale,
+                self.gains["wrist_2"]["D"] * self.d_scale,
+                setpoint=self.gains["wrist_2"]["setpoint"],
+                output_limits=self.gains["wrist_2"]["output_limits"],
                 sample_time=sample_time,
             )
         )  # Wrist 2 Joint
         self.controller_list.append(
             PID(
-                5 * p_scale,
-                0.0 * i_scale,
-                0.1 * d_scale,
-                setpoint=0.0,
-                output_limits=(-1, 1),
+                self.gains["wrist_3"]["P"] * self.p_scale,
+                self.gains["wrist_3"]["I"] * self.i_scale,
+                self.gains["wrist_3"]["D"] * self.d_scale,
+                setpoint=self.gains["wrist_3"]["setpoint"],
+                output_limits=self.gains["wrist_3"]["output_limits"],
                 sample_time=sample_time,
             )
         )  # Wrist 3 Joint
         self.controller_list.append(
             PID(
-                2.5 * p_scale,
-                i_gripper,
-                0.00 * d_scale,
-                setpoint=0.0,
-                output_limits=(-1, 1),
+                self.gains["gripper"]["P"] * self.p_scale,
+                self.gains["gripper"]["I"] * self.i_scale,
+                self.gains["gripper"]["D"] * self.d_scale,
+                setpoint=self.gains["gripper"]["setpoint"],
+                output_limits=self.gains["gripper"]["output_limits"],
                 sample_time=sample_time,
             )
         )  # Gripper Joint
