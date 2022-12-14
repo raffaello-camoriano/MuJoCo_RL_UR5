@@ -2,7 +2,7 @@ mujoco_py
 numpy
 simple_pid
 termcolor
-ikpy
+ikpy==3.0.1
 pyquaternion
 opencv-python
 matplotlib

@@ -135,7 +135,7 @@ class MJ_Controller(object):
 
     def create_lists(self):
         """
-        Creates some basic lists and fill them with initial values. This function is called in the class costructor.
+        Creates some basic lists and fill them with initial values. This function is called in the class constructor.
         The following lists/dictionaries are created:
 
         - controller_list: Contains a controller for each of the actuated joints. This is done so that different gains may be
@@ -161,12 +161,12 @@ class MJ_Controller(object):
         # p_scale = 1
         p_scale = 3
         i_scale = 0.0
-        i_gripper = 0
+        i_gripper = 0.0
         d_scale = 0.1
         self.controller_list.append(
             PID(
                 7 * p_scale,
-                0.0 * i_scale,
+                1.0 * i_scale,
                 1.1 * d_scale,
                 setpoint=0,
                 output_limits=(-2, 2),
